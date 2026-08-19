@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Celestial Profile — Multi-System Astrology</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{
+  --void:#04040d;--deep:#080820;--nebula:#0e0e2e;
+  --accent:#c8a96e;--silver:#a8b4cc;--mist:#6b7a99;
+  --glow:#7b6fe0;--rose:#c97b8a;--jade:#5db89a;
+  --text:#dde3f0;--card:rgba(14,14,46,0.7);--border:rgba(200,169,110,0.18);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--void);color:var(--text);font-family:'Inter',sans-serif;font-weight:300;min-height:100vh;overflow-x:hidden}
+#stars{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse at 20% 30%,rgba(123,111,224,.08) 0%,transparent 60%),
+             radial-gradient(ellipse at 80% 70%,rgba(201,123,138,.06) 0%,transparent 60%)}
+.star{position:absolute;border-radius:50%;background:white;animation:twinkle var(--d,3s) ease-in-out infinite alternate}
+@keyframes twinkle{from{opacity:var(--lo,.2)}to{opacity:var(--hi,.9)}}
+.app{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:0 20px 80px}
+
+/* Header */
+header{text-align:center;padding:60px 0 40px;border-bottom:1px solid var(--border);margin-bottom:48px}
+.eyebrow{font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--accent);margin-bottom:16px}
+h1{font-family:'Cormorant Garamond',serif;font-size:clamp(2.2rem,6vw,4rem);font-weight:300;line-height:1.1}
+h1 em{font-style:italic;color:var(--accent)}
+.subtitle{margin-top:12px;font-size:13px;color:var(--mist);letter-spacing:.03em}
+
+/* API Key Banner */
+.api-banner{
+  background:linear-gradient(135deg,rgba(123,111,224,.1),rgba(200,169,110,.08));
+  border:1px solid rgba(123,111,224,.3);border-radius:12px;
+  padding:20px 24px;margin-bottom:28px;
+}
+.api-banner-title{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--glow);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.api-banner-title::before{content:'🔑'}
+.api-key-row{display:flex;gap:10px;align-items:stretch}
+.api-key-row input{
+  flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(123,111,224,.3);
+  border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;
+  font-size:13px;font-weight:300;outline:none;transition:border-color .2s;
+  font-family:monospace;letter-spacing:.05em;
+}
+.api-key-row input:focus{border-color:var(--glow)}
+.api-key-row input::placeholder{font-family:'Inter',sans-serif;letter-spacing:0}
+.btn-save-key{
+  background:rgba(123,111,224,.15);border:1px solid rgba(123,111,224,.4);
+  border-radius:8px;padding:10px 18px;color:var(--glow);font-size:12px;
+  letter-spacing:.5px;cursor:pointer;white-space:nowrap;transition:all .2s;
+}
+.btn-save-key:hover{background:rgba(123,111,224,.25)}
+.api-hint{font-size:11px;color:var(--mist);margin-top:8px;line-height:1.6}
+.api-hint a{color:var(--accent);text-decoration:none}
+.api-hint a:hover{text-decoration:underline}
+.key-status{font-size:11px;margin-top:6px;min-height:16px}
+.key-status.ok{color:var(--jade)}
+.key-status.missing{color:var(--rose)}
+
+/* Section labels */
+.section-label{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:20px;display:flex;align-items:center;gap:12px}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px 32px;backdrop-filter:blur(12px);margin-bottom:24px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:600px){.form-grid{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:8px}
+.field label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mist)}
+.field input,.field select{
+  background:rgba(255,255,255,.04);border:1px solid rgba(200,169,110,.2);
+  border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;
+  font-size:14px;font-weight:300;outline:none;transition:border-color .2s;width:100%;
+}
+.field input:focus,.field select:focus{border-color:var(--accent)}
+.field select option{background:var(--deep)}
+
+/* Maps */
+.map-columns{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:600px){.map-columns{grid-template-columns:1fr}}
+.map-label{font-size:11px;color:var(--mist);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+.map-container{border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+#birth-map,#current-map{height:180px;width:100%;filter:hue-rotate(200deg) saturate(.5) brightness(.7)}
+.coord-display{margin-top:8px;font-size:12px;color:var(--accent);min-height:18px}
+.geolocate-btn{background:none;border:1px solid rgba(200,169,110,.3);border-radius:6px;color:var(--accent);font-size:11px;padding:5px 12px;cursor:pointer;margin-top:8px;transition:all .2s}
+.geolocate-btn:hover{background:rgba(200,169,110,.08)}
+
+/* Systems */
+.systems-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+.system-toggle{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:12px 16px;cursor:pointer;transition:all .2s;text-align:center;user-select:none}
+.system-toggle:hover{border-color:var(--accent);background:rgba(200,169,110,.06)}
+.system-toggle.active{border-color:var(--accent);background:rgba(200,169,110,.12);box-shadow:0 0 16px rgba(200,169,110,.08)}
+.system-toggle .icon{font-size:22px;margin-bottom:6px}
+.system-toggle .name{font-size:12px;color:var(--text)}
+.system-toggle .desc{font-size:10px;color:var(--mist);margin-top:3px}
+
+/* Generate button */
+.btn-generate{width:100%;padding:16px;background:linear-gradient(135deg,rgba(200,169,110,.15),rgba(123,111,224,.15));border:1px solid var(--accent);border-radius:10px;color:var(--accent);font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:400;letter-spacing:1px;cursor:pointer;transition:all .3s;margin-top:8px}
+.btn-generate:hover{background:linear-gradient(135deg,rgba(200,169,110,.25),rgba(123,111,224,.25));box-shadow:0 0 40px rgba(200,169,110,.15);transform:translateY(-1px)}
+.btn-generate:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* Loading */
+.loading{text-align:center;padding:60px 20px;display:none}
+.loading.active{display:block}
+.orb{width:64px;height:64px;border-radius:50%;margin:0 auto 24px;background:radial-gradient(circle at 35% 35%,var(--accent),var(--glow));animation:pulse 2s ease-in-out infinite;box-shadow:0 0 40px rgba(200,169,110,.3)}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:.8}50%{transform:scale(1.1);opacity:1}}
+.loading-text{font-family:'Cormorant Garamond',serif;font-size:1.2rem;color:var(--mist);font-style:italic}
+
+/* Results */
+#results{display:none}
+.profile-banner{background:linear-gradient(135deg,rgba(14,14,46,.9),rgba(8,8,32,.95));border:1px solid var(--border);border-radius:16px;padding:36px 40px;margin-bottom:28px;position:relative;overflow:hidden}
+.profile-banner::before{content:'';position:absolute;top:-50%;right:-20%;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(123,111,224,.1) 0%,transparent 70%);pointer-events:none}
+.profile-name{font-family:'Cormorant Garamond',serif;font-size:clamp(1.8rem,4vw,2.8rem);font-weight:300;margin-bottom:6px}
+.profile-tagline{font-style:italic;color:var(--accent);font-family:'Cormorant Garamond',serif;font-size:1.1rem;margin-bottom:20px}
+.badges{display:flex;flex-wrap:wrap;gap:10px}
+.badge{padding:5px 14px;border-radius:20px;font-size:12px;letter-spacing:.5px;border:1px solid}
+.badge.western{border-color:var(--glow);color:var(--glow);background:rgba(123,111,224,.1)}
+.badge.vedic{border-color:var(--rose);color:var(--rose);background:rgba(201,123,138,.1)}
+.badge.chinese{border-color:var(--jade);color:var(--jade);background:rgba(93,184,154,.1)}
+.badge.tibetan,.badge.astrocartography{border-color:var(--accent);color:var(--accent);background:rgba(200,169,110,.1)}
+
+/* Chart result cards */
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+@media(max-width:640px){.result-grid{grid-template-columns:1fr}}
+.result-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;backdrop-filter:blur(8px)}
+.result-card.full{grid-column:1/-1}
+.result-card h3{font-family:'Cormorant Garamond',serif;font-size:1.2rem;font-weight:400;color:var(--accent);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.result-card p{font-size:14px;line-height:1.75;color:var(--silver)}
+.data-row{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px solid rgba(200,169,110,.08);font-size:13px}
+.data-row:last-child{border-bottom:none}
+.data-label{color:var(--mist);font-size:11px;letter-spacing:.5px}
+.data-value{color:var(--text);font-weight:400;text-align:right;max-width:60%}
+
+/* AI prediction box */
+.prediction-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px 32px;margin-top:20px;display:none}
+.prediction-card h3{font-family:'Cormorant Garamond',serif;font-size:1.25rem;font-weight:400;color:var(--accent);margin-bottom:18px;display:flex;align-items:center;gap:10px}
+.stream-box{font-size:14px;line-height:1.85;color:var(--silver);white-space:pre-wrap;word-break:break-word}
+.stream-cursor{display:inline-block;width:2px;height:14px;background:var(--accent);margin-left:2px;animation:blink .8s step-end infinite;vertical-align:text-bottom}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.model-tag{font-size:10px;color:var(--mist);letter-spacing:1px;margin-bottom:12px;text-transform:uppercase}
+
+/* Error */
+.error-box{background:rgba(201,123,138,.1);border:1px solid rgba(201,123,138,.3);border-radius:10px;padding:16px 20px;color:var(--rose);font-size:13px;display:none;margin-bottom:16px;line-height:1.6}
+.error-box.active{display:block}
+
+/* Reset */
+.btn-reset{background:none;border:1px solid var(--border);border-radius:8px;color:var(--mist);font-family:'Inter',sans-serif;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:10px 24px;cursor:pointer;margin:32px auto 0;display:block;transition:all .2s}
+.btn-reset:hover{border-color:var(--accent);color:var(--accent)}
+
+/* Model selector */
+.model-select-row{display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap}
+.model-select-row label{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--mist);white-space:nowrap}
+.model-select-row select{background:rgba(255,255,255,.04);border:1px solid rgba(200,169,110,.2);border-radius:8px;padding:8px 12px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;cursor:pointer;flex:1;min-width:0}
+.model-select-row select option{background:var(--deep)}
+.model-status{font-size:11px;margin-top:6px;min-height:16px;color:var(--mist)}
+.model-status.loading{color:var(--accent)}
+.model-status.ok{color:var(--jade)}
+.model-status.err{color:var(--rose)}
+</style>
+</head>
+<body>
+<div id="stars"></div>
+<div class="app">
+
+  <header>
+    <div class="eyebrow">Multi-System Celestial Reading</div>
+    <h1>Read the <em>Stars</em></h1>
+    <p class="subtitle">Western · Vedic · Chinese · Tibetan — unified in one profile</p>
+  </header>
+
+  <div id="form-section">
+
+    <!-- API KEY -->
+    <div class="api-banner">
+      <div class="api-banner-title">Groq API Key — Free Tier</div>
+      <div class="api-key-row">
+        <input type="password" id="groq-key" placeholder="gsk_••••••••••••••••••••••••••••••••" autocomplete="off"/>
+        <button class="btn-save-key" onclick="saveKey()">Save Key</button>
+      </div>
+      <div class="api-hint">
+        Get a free key at <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> — no credit card required.
+        Your key is stored only in your browser (localStorage) and never sent anywhere except Groq's API.
+      </div>
+      <div class="key-status" id="key-status"></div>
+      <div class="model-select-row">
+        <label>Model</label>
+        <select id="groq-model">
+          <option value="">— save key to load models —</option>
+        </select>
+        <button class="btn-save-key" id="refresh-models-btn" onclick="fetchModels()" style="display:none">↻ Refresh</button>
+      </div>
+      <div class="model-status" id="model-status"></div>
+    </div>
+
+    <!-- BIRTH DETAILS -->
+    <div class="section-label">Birth Details</div>
+    <div class="card">
+      <div class="form-grid">
+        <div class="field"><label>Full Name</label><input type="text" id="name" placeholder="Your name"/></div>
+        <div class="field"><label>Date of Birth</label><input type="date" id="dob"/></div>
+        <div class="field"><label>Time of Birth</label><input type="time" id="tob"/></div>
+        <div class="field"><label>Gender / Pronoun (optional)</label>
+          <select id="gender">
+            <option value="">Prefer not to say</option>
+            <option value="she/her">She / Her</option>
+            <option value="he/him">He / Him</option>
+            <option value="they/them">They / Them</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOCATIONS -->
+    <div class="section-label">Locations</div>
+    <div class="card">
+      <div class="map-columns">
+        <div>
+          <div class="map-label">📍 Birth Location <span style="color:var(--mist);font-size:10px">(click map)</span></div>
+          <div class="map-container"><div id="birth-map"></div></div>
+          <div class="coord-display" id="birth-coords">Click the map to set birth location</div>
+          <input type="hidden" id="birth-lat"/><input type="hidden" id="birth-lng"/>
+          <input type="hidden" id="birth-city" value=""/>
+          <button class="geolocate-btn" onclick="geolocateForMap('birth')">⊕ Use my location</button>
+        </div>
+        <div>
+          <div class="map-label">🌍 Current Location <span style="color:var(--mist);font-size:10px">(click map)</span></div>
+          <div class="map-container"><div id="current-map"></div></div>
+          <div class="coord-display" id="current-coords">Click the map to set current location</div>
+          <input type="hidden" id="current-lat"/><input type="hidden" id="current-lng"/>
+          <input type="hidden" id="current-city" value=""/>
+          <button class="geolocate-btn" onclick="geolocateForMap('current')">⊕ Detect my location</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SYSTEMS -->
+    <div class="section-label">Astrological Systems</div>
+    <div class="card">
+      <div class="systems-grid">
+        <div class="system-toggle active" data-system="western" onclick="toggleSystem(this)"><div class="icon">♈</div><div class="name">Western</div><div class="desc">Tropical zodiac</div></div>
+        <div class="system-toggle active" data-system="vedic" onclick="toggleSystem(this)"><div class="icon">🪷</div><div class="name">Vedic</div><div class="desc">Jyotish · Sidereal</div></div>
+        <div class="system-toggle active" data-system="chinese" onclick="toggleSystem(this)"><div class="icon">🐉</div><div class="name">Chinese</div><div class="desc">BaZi · Four Pillars</div></div>
+        <div class="system-toggle active" data-system="tibetan" onclick="toggleSystem(this)"><div class="icon">☸️</div><div class="name">Tibetan</div><div class="desc">Elemental cycle</div></div>
+        <div class="system-toggle active" data-system="astrocartography" onclick="toggleSystem(this)"><div class="icon">🗺️</div><div class="name">Astrocartography</div><div class="desc">Location influence</div></div>
+      </div>
+    </div>
+
+    <div id="error-msg" class="error-box"></div>
+    <button class="btn-generate" id="generate-btn" onclick="generateReading()">✦ Cast My Celestial Profile ✦</button>
+  </div>
+
+  <!-- LOADING -->
+  <div class="loading" id="loading">
+    <div class="orb"></div>
+    <div class="loading-text" id="loading-text">Consulting the stars…</div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results">
+    <div class="profile-banner">
+      <div class="profile-name" id="result-name"></div>
+      <div class="profile-tagline" id="result-tagline"></div>
+      <div class="badges" id="result-badges"></div>
+    </div>
+    <div id="chart-cards"></div>
+    <div class="prediction-card" id="prediction-card">
+      <h3><span>🔮</span> AI Predictions &amp; Insights</h3>
+      <div class="model-tag" id="model-tag"></div>
+      <div class="stream-box" id="prediction-text"></div>
+    </div>
+    <button class="btn-reset" onclick="resetForm()">← New Reading</button>
+  </div>
+
+</div>
+<script>
+// ── Starfield ──────────────────────────────────────────────────────────────
+(function(){
+  const el=document.getElementById('stars');
+  for(let i=0;i<160;i++){
+    const s=document.createElement('div');s.className='star';
+    const sz=Math.random()*1.8+.4;
+    s.style.cssText=`width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--lo:${(Math.random()*.3+.05).toFixed(2)};--hi:${(Math.random()*.5+.4).toFixed(2)};--d:${(Math.random()*4+2).toFixed(1)}s;animation-delay:${(Math.random()*4).toFixed(1)}s`;
+    el.appendChild(s);
+  }
+})();
+
+// ── API Key management ─────────────────────────────────────────────────────
+async function saveKey(){
+  const k=document.getElementById('groq-key').value.trim();
+  if(!k){showKeyStatus('Please paste your Groq API key first.','missing');return;}
+  if(!k.startsWith('gsk_')){showKeyStatus('Key should start with gsk_ — check you copied it correctly.','missing');return;}
+  localStorage.setItem('groq_api_key',k);
+  showKeyStatus('✓ Key saved — loading models…','ok');
+  await fetchModels();
+}
+function loadKey(){
+  const k=localStorage.getItem('groq_api_key')||'';
+  if(k){
+    document.getElementById('groq-key').value=k;
+    showKeyStatus('✓ Key loaded from storage','ok');
+    fetchModels();
+  }
+}
+function showKeyStatus(msg,cls){
+  const el=document.getElementById('key-status');
+  el.textContent=msg;el.className='key-status '+cls;
+}
+function getKey(){return document.getElementById('groq-key').value.trim()||localStorage.getItem('groq_api_key')||'';}
+
+// ── Fetch live models from Groq ────────────────────────────────────────────
+// Models to exclude: audio/speech/transcription/vision-only/guard/tool models
+const EXCLUDE_PATTERNS=[
+  /whisper/i,/tts/i,/speech/i,/guard/i,/tool/i,/vision/i,
+  /distil-whisper/i,/playai/i,/^(?!.*chat).*embed/i
+];
+// Preferred order — put bigger/better models first
+const PREFERRED_ORDER=[
+  'llama-3.3-70b-versatile','llama-4-scout','kimi-k2',
+  'qwen/qwen3-32b','moonshotai/kimi-k2-instruct',
+  'openai/gpt-oss-120b','openai/gpt-oss-20b',
+  'meta-llama/llama-4-scout-17b-16e-instruct',
+  'deepseek-r1-distill-llama-70b','llama3-70b-8192',
+  'mixtral-8x7b-32768','llama3-8b-8192','gemma2-9b-it',
+];
+
+async function fetchModels(){
+  const key=getKey();
+  if(!key||!key.startsWith('gsk_')){
+    setModelStatus('Enter and save your API key first to load models.','err');
+    return;
+  }
+  setModelStatus('Fetching live models from Groq…','loading');
+  const sel=document.getElementById('groq-model');
+  sel.innerHTML='<option value="">Loading…</option>';
+  sel.disabled=true;
+
+  try{
+    const resp=await fetch('https://api.groq.com/openai/v1/models',{
+      headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'}
+    });
+    if(!resp.ok){
+      const e=await resp.json().catch(()=>({}));
+      throw new Error(e.error?.message||'HTTP '+resp.status);
+    }
+    const data=await resp.json();
+    // Filter to chat-capable models only
+    const models=(data.data||[]).filter(m=>{
+      if(!m.active)return false;
+      return !EXCLUDE_PATTERNS.some(p=>p.test(m.id));
+    });
+
+    if(!models.length){
+      sel.innerHTML='<option value="">No chat models found</option>';
+      setModelStatus('No chat models returned — check your key.','err');
+      sel.disabled=false;
+      return;
+    }
+
+    // Sort: preferred order first, then alphabetical
+    models.sort((a,b)=>{
+      const ai=PREFERRED_ORDER.findIndex(p=>a.id.toLowerCase().includes(p.toLowerCase()));
+      const bi=PREFERRED_ORDER.findIndex(p=>b.id.toLowerCase().includes(p.toLowerCase()));
+      if(ai>=0&&bi>=0)return ai-bi;
+      if(ai>=0)return -1;
+      if(bi>=0)return 1;
+      return a.id.localeCompare(b.id);
+    });
+
+    sel.innerHTML='';
+    models.forEach(m=>{
+      const ctx=m.context_window>=100000
+        ?Math.round(m.context_window/1000)+'K ctx'
+        :m.context_window?.toLocaleString()+' ctx';
+      const owner=m.owned_by||'';
+      // Clean up display name
+      const label=formatModelName(m.id);
+      const opt=document.createElement('option');
+      opt.value=m.id;
+      opt.textContent=`${label}  ·  ${owner}  ·  ${ctx}`;
+      sel.appendChild(opt);
+    });
+
+    sel.disabled=false;
+    document.getElementById('refresh-models-btn').style.display='inline-block';
+    setModelStatus(`✓ ${models.length} chat models loaded — choose one above`,'ok');
+
+    // Restore saved selection or default to first
+    const saved=localStorage.getItem('groq_model_pref');
+    if(saved&&[...sel.options].some(o=>o.value===saved))sel.value=saved;
+
+    sel.onchange=()=>localStorage.setItem('groq_model_pref',sel.value);
+
+  }catch(err){
+    sel.innerHTML='<option value="">Could not load models</option>';
+    sel.disabled=false;
+    setModelStatus('Error: '+err.message,'err');
+  }
+}
+
+function formatModelName(id){
+  // Turn model IDs into readable names
+  return id
+    .replace(/^(?:meta-llama|openai|qwen|moonshotai|google)\//i,'')
+    .replace(/-instruct$/i,'')
+    .replace(/-versatile$/i,' (versatile)')
+    .replace(/-preview$/i,' (preview)')
+    .replace(/llama-?(\d)/gi,'Llama $1')
+    .replace(/llama(\d)/gi,'Llama $1')
+    .replace(/mixtral/i,'Mixtral')
+    .replace(/gemma(\d)/i,'Gemma $1')
+    .replace(/deepseek/i,'DeepSeek')
+    .replace(/qwen(\d)/i,'Qwen $1')
+    .replace(/kimi-k(\d)/i,'Kimi K$1')
+    .replace(/gpt-oss-(\d+b)/i,'GPT-OSS $1')
+    .replace(/-(\d+b)/gi,' $1')
+    .replace(/-(\d+x\d+b)/gi,' $1')
+    .replace(/-(\d{4,5})/g,'')
+    .replace(/-/g,' ')
+    .replace(/\b\w/g,c=>c.toUpperCase())
+    .trim();
+}
+
+function setModelStatus(msg,cls){
+  const el=document.getElementById('model-status');
+  el.textContent=msg;el.className='model-status '+cls;
+}
+
+// ── Systems ────────────────────────────────────────────────────────────────
+const activeSystems=new Set(['western','vedic','chinese','tibetan','astrocartography']);
+function toggleSystem(el){
+  const s=el.dataset.system;
+  if(activeSystems.has(s)){activeSystems.delete(s);el.classList.remove('active');}
+  else{activeSystems.add(s);el.classList.add('active');}
+}
+
+// ── Maps ───────────────────────────────────────────────────────────────────
+let birthMap,currentMap,birthMarker,currentMarker;
+function initMaps(){
+  const tile='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const attr='© OpenStreetMap';
+  birthMap=L.map('birth-map').setView([20,0],2);
+  L.tileLayer(tile,{attribution:attr}).addTo(birthMap);
+  birthMap.on('click',e=>setPin('birth',e.latlng.lat,e.latlng.lng));
+  currentMap=L.map('current-map').setView([20,0],2);
+  L.tileLayer(tile,{attribution:attr}).addTo(currentMap);
+  currentMap.on('click',e=>setPin('current',e.latlng.lat,e.latlng.lng));
+}
+const mkIcon=c=>L.divIcon({html:`<div style="width:14px;height:14px;border-radius:50%;background:${c};box-shadow:0 0 10px ${c};border:2px solid white"></div>`,iconSize:[14,14],iconAnchor:[7,7],className:''});
+async function setPin(type,lat,lng){
+  const map=type==='birth'?birthMap:currentMap;
+  let marker=type==='birth'?birthMarker:currentMarker;
+  const color=type==='birth'?'#c8a96e':'#7b6fe0';
+  if(marker)map.removeLayer(marker);
+  marker=L.marker([lat,lng],{icon:mkIcon(color)}).addTo(map);
+  if(type==='birth')birthMarker=marker;else currentMarker=marker;
+  document.getElementById(`${type}-lat`).value=lat.toFixed(4);
+  document.getElementById(`${type}-lng`).value=lng.toFixed(4);
+  const coords=`${Math.abs(lat).toFixed(2)}°${lat>=0?'N':'S'}, ${Math.abs(lng).toFixed(2)}°${lng>=0?'E':'W'}`;
+  document.getElementById(`${type}-coords`).textContent=coords+' — looking up…';
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+    const d=await r.json();
+    const city=d.address?.city||d.address?.town||d.address?.village||d.address?.county||'';
+    const country=d.address?.country||'';
+    const place=[city,country].filter(Boolean).join(', ')||coords;
+    document.getElementById(`${type}-city`).value=place;
+    document.getElementById(`${type}-coords`).textContent=`${place} (${lat.toFixed(2)}, ${lng.toFixed(2)})`;
+  }catch{document.getElementById(`${type}-coords`).textContent=coords;}
+}
+function geolocateForMap(type){
+  if(!navigator.geolocation)return alert('Geolocation not available in this browser.');
+  navigator.geolocation.getCurrentPosition(p=>{
+    const{latitude:lat,longitude:lng}=p.coords;
+    (type==='birth'?birthMap:currentMap).setView([lat,lng],8);
+    setPin(type,lat,lng);
+  },()=>alert('Could not get location — click the map manually.'));
+}
+
+// ══════════════════════════════════════════════════════════════
+// PURE-JS ASTROLOGY CALCULATIONS
+// ══════════════════════════════════════════════════════════════
+
+// Western sun sign
+function getWesternSun(m,d){
+  const data=[
+    {n:'Capricorn',s:'♑',el:'Earth',mo:'Cardinal',ru:'Saturn',cutoff:[1,19]},
+    {n:'Aquarius',s:'♒',el:'Air',mo:'Fixed',ru:'Uranus',cutoff:[2,18]},
+    {n:'Pisces',s:'♓',el:'Water',mo:'Mutable',ru:'Neptune',cutoff:[3,20]},
+    {n:'Aries',s:'♈',el:'Fire',mo:'Cardinal',ru:'Mars',cutoff:[4,19]},
+    {n:'Taurus',s:'♉',el:'Earth',mo:'Fixed',ru:'Venus',cutoff:[5,20]},
+    {n:'Gemini',s:'♊',el:'Air',mo:'Mutable',ru:'Mercury',cutoff:[6,20]},
+    {n:'Cancer',s:'♋',el:'Water',mo:'Cardinal',ru:'Moon',cutoff:[7,22]},
+    {n:'Leo',s:'♌',el:'Fire',mo:'Fixed',ru:'Sun',cutoff:[8,22]},
+    {n:'Virgo',s:'♍',el:'Earth',mo:'Mutable',ru:'Mercury',cutoff:[9,22]},
+    {n:'Libra',s:'♎',el:'Air',mo:'Cardinal',ru:'Venus',cutoff:[10,22]},
+    {n:'Scorpio',s:'♏',el:'Water',mo:'Fixed',ru:'Pluto',cutoff:[11,21]},
+    {n:'Sagittarius',s:'♐',el:'Fire',mo:'Mutable',ru:'Jupiter',cutoff:[12,21]},
+  ];
+  let idx=m-1;
+  if(d>data[idx].cutoff[1])idx=(idx+1)%12;
+  return{...data[idx],idx};
+}
+
+// Approximate moon sign (moves ~13.2°/day)
+function getMoon(yr,mo,d){
+  const names=['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
+  const syms=['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓'];
+  const ref=new Date(2000,0,1); // Moon ~0° Aries Jan 1 2000 (approx)
+  const days=Math.floor((new Date(yr,mo-1,d)-ref)/86400000);
+  const pos=((days*13.176)%360+360)%360;
+  const i=Math.floor(pos/30);
+  return{n:names[i],s:syms[i]};
+}
+
+// Rising sign (simplified: sun sign at 6am, +1 sign per 2h)
+function getRising(hr,min,sunIdx){
+  if(hr===null)return null;
+  const names=['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
+  const syms=['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓'];
+  const hoursFromSunrise=((hr+min/60-6)+24)%24;
+  const i=(sunIdx+Math.floor(hoursFromSunrise/2))%12;
+  return{n:names[i],s:syms[i]};
+}
+
+// Vedic sidereal (shift back ~1 sign for ayanamsa ~23°)
+function getVedic(mo,d){
+  const sidereal=['Mesha (Aries)','Vrishabha (Taurus)','Mithuna (Gemini)','Karka (Cancer)','Simha (Leo)','Kanya (Virgo)','Tula (Libra)','Vrishchika (Scorpio)','Dhanu (Sagittarius)','Makara (Capricorn)','Kumbha (Aquarius)','Meena (Pisces)'];
+  const w=getWesternSun(mo,d);
+  return{label:sidereal[(w.idx+11)%12],tropical:w.n};
+}
+
+// Nakshatra (~27 lunar mansions, moon moves through one every ~1 day)
+function getNakshatra(yr,mo,d){
+  const nk=['Ashwini','Bharani','Krittika','Rohini','Mrigashira','Ardra','Punarvasu','Pushya','Ashlesha','Magha','Purva Phalguni','Uttara Phalguni','Hasta','Chitra','Swati','Vishakha','Anuradha','Jyeshtha','Mula','Purva Ashadha','Uttara Ashadha','Shravana','Dhanishta','Shatabhisha','Purva Bhadrapada','Uttara Bhadrapada','Revati'];
+  const ref=new Date(2000,0,1);
+  const days=Math.floor((new Date(yr,mo-1,d)-ref)/86400000);
+  const pos=((days*13.176)%360+360)%360;
+  return nk[Math.floor(pos/(360/27))%27];
+}
+
+// Chinese BaZi
+function getChinese(yr,mo,d){
+  const animals=['Rat','Ox','Tiger','Rabbit','Dragon','Snake','Horse','Goat','Monkey','Rooster','Dog','Pig'];
+  const emojis=['🐀','🐂','🐅','🐇','🐉','🐍','🐎','🐑','🐒','🐓','🐕','🐖'];
+  const elements=['Wood','Fire','Earth','Metal','Water'];
+  const elEmoji=['🌿','🔥','🪨','⚔️','💧'];
+  let adjY=yr;
+  if(mo===1||(mo===2&&d<5))adjY=yr-1;
+  const ai=((adjY-1900)%12+12)%12;
+  const ei=Math.floor(((adjY-1900)%10+10)%10/2);
+  const polarity=adjY%2===0?'Yang':'Yin';
+  const monthAnimals=['Tiger','Rabbit','Dragon','Snake','Horse','Goat','Monkey','Rooster','Dog','Pig','Rat','Ox'];
+  const clashAnimal=animals[(ai+6)%12];
+  return{animal:animals[ai],emoji:emojis[ai],element:elements[ei],elEmoji:elEmoji[ei],polarity,monthAnimal:monthAnimals[(mo-1+2)%12],clashAnimal,adjYear:adjY};
+}
+
+// Vedic Dasha
+function getDasha(yr,mo,d){
+  const seq=[{p:'Sun',y:6},{p:'Moon',y:10},{p:'Mars',y:7},{p:'Rahu',y:18},{p:'Jupiter',y:16},{p:'Saturn',y:19},{p:'Mercury',y:17},{p:'Ketu',y:7},{p:'Venus',y:20}];
+  const yearsLived=(Date.now()-new Date(yr,mo-1,d))/(365.25*86400000);
+  // Simple offset based on nakshatra index
+  const nkIdx=['Ashwini','Bharani','Krittika','Rohini','Mrigashira','Ardra','Punarvasu','Pushya','Ashlesha','Magha','Purva Phalguni','Uttara Phalguni','Hasta','Chitra','Swati','Vishakha','Anuradha','Jyeshtha','Mula','Purva Ashadha','Uttara Ashadha','Shravana','Dhanishta','Shatabhisha','Purva Bhadrapada','Uttara Bhadrapada','Revati'].indexOf(getNakshatra(yr,mo,d));
+  const startSeq=nkIdx%9;
+  let acc=0;
+  const list=[];
+  for(let pass=0;pass<4;pass++)for(let j=0;j<9;j++){const s=seq[(startSeq+j)%9];list.push({...s,start:acc,end:acc+s.y});acc+=s.y;}
+  const cur=list.find(x=>yearsLived>=x.start&&yearsLived<x.end)||list[0];
+  const nxt=list[list.indexOf(cur)+1]||list[0];
+  return{current:cur.p,next:nxt.p,yearsLeft:(cur.end-yearsLived).toFixed(1)};
+}
+
+// Tibetan
+function getTibetan(yr,mo,d){
+  const mewas=['White','Black','Blue','Green','Yellow','White','Red','White','Red','Blue','Gold','Green','Red'];
+  const parkhas=['Khen','Kham','Gin','Zön','Ön','Dha','Bön','Kham','Li'];
+  const ch=getChinese(yr,mo,d);
+  return{animal:ch.animal,element:ch.element,polarity:ch.polarity,mewa:mewas[((yr-1)%9+9)%9],parkha:parkhas[((yr-1)%8+8)%8]};
+}
+
+// Astrocartography
+function getAstrocart(bLat,bLng,cLat,cLng){
+  if(!bLat||!cLat)return null;
+  bLat=+bLat;bLng=+bLng;cLat=+cLat;cLng=+cLng;
+  const latD=Math.abs(cLat-bLat),lngD=Math.abs(cLng-bLng);
+  const dist=Math.round(Math.sqrt(latD*latD+lngD*lngD)*111);
+  const themes=[
+    [0,15,'Sun','You remain close to your solar line — life here aligns with your core identity and purpose.'],
+    [15,35,'Venus','A Venus line shift — relationships, creativity, and beauty become central themes.'],
+    [35,65,'Mercury','Mercury energy rises — communication, learning, and quick thinking flourish here.'],
+    [65,95,'Mars','Mars colours this place — ambition, drive, and dynamic action are amplified.'],
+    [95,130,'Jupiter','Jupiter expands your horizons — growth, luck, and wisdom are gifts of this location.'],
+    [130,999,'Saturn','Saturn\'s long reach touches here — discipline and karmic lessons are the curriculum.'],
+  ];
+  const t=themes.find(x=>lngD>=x[0]&&lngD<x[1])||themes[themes.length-1];
+  return{dist,ns:cLat>bLat?'further north':'further south',ew:cLng>bLng?'further east':'further west',planet:t[2],theme:t[3]};
+}
+
+// Traits
+const TRAITS={
+  Aries:'Bold, pioneering, and energetic. You lead instinctively and thrive on new beginnings. Impatience is your shadow; courage is your gift.',
+  Taurus:'Grounded, sensual, and patient. You build lasting things and cherish beauty and comfort. Stubbornness hides a deep need for security.',
+  Gemini:'Curious, versatile, and witty. Your mind moves fast and you hunger for connection and variety. Restlessness is your shadow.',
+  Cancer:'Intuitive, nurturing, and deeply feeling. Home, family, and memory are sacred. Your empathy is both your superpower and your vulnerability.',
+  Leo:'Radiant, generous, and expressive. You carry a natural authority and a big heart. You need to be seen — and you deserve to shine.',
+  Virgo:'Analytical, devoted, and precise. You find magic in the details and serve others with quiet dedication. Perfectionism can close your heart.',
+  Libra:'Harmonious, fair-minded, and aesthetic. You seek balance and are gifted at holding space for others\' perspectives.',
+  Scorpio:'Intense, perceptive, and transformative. You see beneath surfaces and are drawn to depths others fear. Power and surrender are your teachers.',
+  Sagittarius:'Adventurous, philosophical, and free-spirited. You seek truth through experience. Wisdom is your true north.',
+  Capricorn:'Disciplined, ambitious, and enduring. You understand that mountains are climbed one step at a time. Legacy matters deeply to you.',
+  Aquarius:'Visionary, humanitarian, and original. You feel the future and are called to serve the collective. Detachment protects a tender heart.',
+  Pisces:'Dreamy, compassionate, and spiritually attuned. You feel everything and carry the ocean within. Boundaries are your lifelong curriculum.',
+};
+
+// ══════════════════════════════════════════════════════════════
+// GENERATE READING
+// ══════════════════════════════════════════════════════════════
+async function generateReading(){
+  const key=getKey();
+  if(!key||!key.startsWith('gsk_')){
+    showError('Please enter your Groq API key above (starts with gsk_). Get one free at console.groq.com/keys');
+    return;
+  }
+  const model=document.getElementById('groq-model').value;
+  if(!model){
+    showError('Please wait for models to load and select one from the dropdown.');
+    return;
+  }
+  const dob=document.getElementById('dob').value;
+  if(!dob){showError('Please enter your date of birth.');return;}
+
+  hideError();
+  document.getElementById('form-section').style.display='none';
+  document.getElementById('loading').classList.add('active');
+  document.getElementById('results').style.display='none';
+
+  const phrases=['Consulting the stars…','Tracing planetary orbits…','Reading the lunar mansions…','Calculating your Four Pillars…','Weaving your celestial tapestry…'];
+  let pi=0;
+  const lt=setInterval(()=>document.getElementById('loading-text').textContent=phrases[pi++%phrases.length],2200);
+
+  const name=document.getElementById('name').value.trim()||'Seeker';
+  const tob=document.getElementById('tob').value;
+  const gender=document.getElementById('gender').value;
+  const bLat=document.getElementById('birth-lat').value;
+  const bLng=document.getElementById('birth-lng').value;
+  const bCity=document.getElementById('birth-city').value||'Unknown location';
+  const cLat=document.getElementById('current-lat').value;
+  const cLng=document.getElementById('current-lng').value;
+  const cCity=document.getElementById('current-city').value||'Same as birth location';
+
+  const [yr,mo,dy]=dob.split('-').map(Number);
+  let hr=null,mn=null;
+  if(tob){[hr,mn]=tob.split(':').map(Number);}
+
+  const sun=getWesternSun(mo,dy);
+  const moon=getMoon(yr,mo,dy);
+  const rising=hr!==null?getRising(hr,mn,sun.idx):null;
+  const vedic=getVedic(mo,dy);
+  const nak=getNakshatra(yr,mo,dy);
+  const chinese=getChinese(yr,mo,dy);
+  const dasha=getDasha(yr,mo,dy);
+  const tibetan=getTibetan(yr,mo,dy);
+  const astrocart=getAstrocart(bLat,bLng,cLat,cLng);
+  const age=Math.floor((Date.now()-new Date(yr,mo-1,dy))/(365.25*86400000));
+
+  clearInterval(lt);
+  document.getElementById('loading').classList.remove('active');
+
+  renderCharts({name,age,sun,moon,rising,vedic,nak,chinese,dasha,tibetan,astrocart,bCity,cCity});
+
+  document.getElementById('results').style.display='block';
+  document.getElementById('results').scrollIntoView({behavior:'smooth'});
+
+  // AI prediction via Groq
+  await streamPrediction({key,model,name,age,sun,moon,rising,vedic,nak,chinese,dasha,tibetan,astrocart,bCity,cCity,gender,systems:[...activeSystems]});
+}
+
+async function streamPrediction(p){
+  const card=document.getElementById('prediction-card');
+  const box=document.getElementById('prediction-text');
+  const modelTag=document.getElementById('model-tag');
+  card.style.display='block';
+  modelTag.textContent='via Groq · '+p.model;
+  box.textContent='';
+
+  const cursor=document.createElement('span');
+  cursor.className='stream-cursor';
+  box.appendChild(cursor);
+
+  const systemPrompt=`You are an insightful, warm astrologer with deep expertise in Western, Vedic, Chinese, Tibetan, and Astrocartography systems. Write flowing, personalised readings that feel genuinely insightful — never generic or templated. Always reference the person's specific placements.`;
+
+  const userPrompt=buildPrompt(p);
+
+  try{
+    const resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+p.key},
+      body:JSON.stringify({
+        model:p.model,
+        messages:[{role:'system',content:systemPrompt},{role:'user',content:userPrompt}],
+        max_tokens:1800,
+        temperature:0.85,
+        stream:true
+      })
+    });
+
+    if(!resp.ok){
+      const err=await resp.json().catch(()=>({error:{message:resp.statusText}}));
+      throw new Error(err.error?.message||'Groq API error '+resp.status);
+    }
+
+    const reader=resp.body.getReader();
+    const dec=new TextDecoder();
+    let buf='';
+
+    while(true){
+      const{done,value}=await reader.read();
+      if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      const lines=buf.split('\n');
+      buf=lines.pop();
+      for(const line of lines){
+        if(!line.startsWith('data: '))continue;
+        const data=line.slice(6).trim();
+        if(data==='[DONE]')break;
+        try{
+          const j=JSON.parse(data);
+          const chunk=j.choices?.[0]?.delta?.content||'';
+          if(chunk){
+            cursor.remove();
+            box.textContent+=chunk;
+            box.appendChild(cursor);
+          }
+        }catch{}
+      }
+    }
+    cursor.remove();
+  }catch(err){
+    cursor.remove();
+    box.textContent='⚠ Could not load AI predictions: '+err.message+'\n\nYour chart data above is calculated locally and is still accurate. Check that your Groq API key is correct and try again.';
+  }
+}
+
+function buildPrompt(p){
+  const sys=p.systems.join(', ');
+  return `Create a personalised multi-system astrological reading for ${p.name} (age ${p.age}${p.gender?' · '+p.gender:''}).
+
+CHART DATA (calculated):
+Western: ${p.sun.n} Sun ${p.sun.s} · ${p.moon.n} Moon ${p.moon.s}${p.rising?' · '+p.rising.n+' Rising '+p.rising.s:''}
+Element: ${p.sun.el} · Mode: ${p.sun.mo} · Ruler: ${p.sun.ru}
+Vedic: ${p.vedic.label} (tropical was ${p.vedic.tropical}) · Nakshatra: ${p.nak}
+Vedic Dasha: Currently in ${p.dasha.current} period (${p.dasha.yearsLeft} years remaining) → next: ${p.dasha.next}
+Chinese BaZi: ${p.chinese.element} ${p.chinese.animal} (${p.chinese.polarity}) · Month pillar: ${p.chinese.monthAnimal}
+Tibetan: ${p.tibetan.animal} · ${p.tibetan.element} · Mewa: ${p.tibetan.mewa} · Parkha: ${p.tibetan.parkha}
+Birth location: ${p.bCity}${p.astrocart?' · Current location: '+p.cCity+' ('+p.astrocart.planet+' line, ~'+p.astrocart.dist+'km '+p.astrocart.ns+' & '+p.astrocart.ew+')':''}
+Active systems: ${sys}
+
+Write the following sections with headers (use ## for section titles):
+
+## Soul Signature
+What the combination of all active systems reveals about ${p.name}'s core nature, life themes, and soul purpose. Be specific — reference their actual placements and how they interact across systems. (2-3 paragraphs)
+
+## Next 12 Months
+Specific predictions and themes for the coming year. Reference: 2026 is the Fire Snake year in Chinese astrology, their current ${p.dasha.current} Dasha (${p.dasha.yearsLeft}yr remaining), and Western transits. Give concrete timing guidance where possible. (1-2 paragraphs)
+
+## 3–5 Year Outlook  
+Bigger life cycles and transitions ahead, including the upcoming ${p.dasha.next} Dasha and what it signals. (1 paragraph)
+${p.astrocart?`
+## Location & Astrocartography
+How living in ${p.cCity} rather than ${p.bCity} is affecting ${p.name} energetically (${p.astrocart.planet} line influence: ${p.astrocart.theme}). (1 paragraph)
+`:''}
+## One Practice
+A single concrete spiritual or practical practice drawn from one of these traditions that would most benefit ${p.name} right now. Be specific about what, how, and why. (short paragraph)
+
+Write warmly, personally, with genuine depth. No generic astrology copy-paste.`;
+}
+
+// ── Render chart cards ─────────────────────────────────────────────────────
+function renderCharts(d){
+  document.getElementById('result-name').textContent=d.name+"'s Celestial Chart";
+  document.getElementById('result-tagline').textContent=
+    `${d.sun.s} ${d.sun.n} · ${d.moon.s} ${d.moon.n} Moon · ${d.chinese.elEmoji} ${d.chinese.element} ${d.chinese.emoji} ${d.chinese.animal}`;
+
+  const badges=document.getElementById('result-badges');
+  badges.innerHTML='';
+  const add=(cls,txt)=>badges.innerHTML+=`<span class="badge ${cls}">${txt}</span>`;
+  if(activeSystems.has('western')){add('western',`${d.sun.s} ${d.sun.n} Sun`);if(d.rising)add('western',`${d.rising.s} ${d.rising.n} Rising`);}
+  if(activeSystems.has('vedic'))add('vedic','🪷 '+d.vedic.label.split(' ')[0]);
+  if(activeSystems.has('chinese'))add('chinese',`${d.chinese.emoji} ${d.chinese.element} ${d.chinese.animal}`);
+  if(activeSystems.has('tibetan'))add('tibetan','☸️ Mewa '+d.tibetan.mewa);
+
+  const con=document.getElementById('chart-cards');
+  con.innerHTML='';
+  const cards=[];
+
+  if(activeSystems.has('western')){
+    const rows=[
+      {l:'Sun Sign',v:`${d.sun.s} ${d.sun.n}`},{l:'Moon Sign',v:`${d.moon.s} ${d.moon.n}`},
+    ];
+    if(d.rising)rows.push({l:'Rising Sign',v:`${d.rising.s} ${d.rising.n}`});
+    rows.push({l:'Element',v:d.sun.el},{l:'Modality',v:d.sun.mo},{l:'Ruling Planet',v:d.sun.ru});
+    cards.push({title:'Western Chart',icon:'♈',rows,prose:TRAITS[d.sun.n]});
+  }
+
+  if(activeSystems.has('vedic')){
+    cards.push({title:'Vedic (Jyotish)',icon:'🪷',rows:[
+      {l:'Sidereal Sign',v:d.vedic.label},{l:'Tropical (Western)',v:d.vedic.tropical},
+      {l:'Nakshatra',v:d.nak},{l:'Current Dasha',v:d.dasha.current+' period'},
+      {l:'Years Remaining',v:d.dasha.yearsLeft+' yrs'},{l:'Next Dasha',v:d.dasha.next},
+    ]});
+  }
+
+  if(activeSystems.has('chinese')){
+    cards.push({title:'Chinese BaZi',icon:'🐉',rows:[
+      {l:'Birth Animal',v:`${d.chinese.emoji} ${d.chinese.animal}`},
+      {l:'Element',v:`${d.chinese.elEmoji} ${d.chinese.element}`},
+      {l:'Polarity',v:d.chinese.polarity},
+      {l:'Month Pillar',v:d.chinese.monthAnimal},
+      {l:'2026 Year Energy',v:'🐍 Fire Snake'},
+      {l:'Clash Animal',v:d.chinese.clashAnimal},
+    ]});
+  }
+
+  if(activeSystems.has('tibetan')){
+    cards.push({title:'Tibetan Astrology',icon:'☸️',rows:[
+      {l:'Animal',v:d.tibetan.animal},{l:'Element',v:d.tibetan.element},
+      {l:'Polarity',v:d.tibetan.polarity},{l:'Mewa (Life Force)',v:d.tibetan.mewa},
+      {l:'Parkha (Trigram)',v:d.tibetan.parkha},
+    ]});
+  }
+
+  if(activeSystems.has('astrocartography')){
+    if(d.astrocart){
+      cards.push({title:'Astrocartography',icon:'🗺️',rows:[
+        {l:'Birth Location',v:d.bCity},{l:'Current Location',v:d.cCity},
+        {l:'Distance',v:'~'+d.astrocart.dist.toLocaleString()+' km'},
+        {l:'Direction',v:d.astrocart.ns+', '+d.astrocart.ew},
+        {l:'Active Planet Line',v:d.astrocart.planet},
+      ],prose:d.astrocart.theme});
+    }else{
+      cards.push({title:'Astrocartography',icon:'🗺️',prose:'Set both birth and current locations on the maps above to see your astrocartography reading.'});
+    }
+  }
+
+  // Render pairs
+  let i=0;
+  while(i<cards.length){
+    const c=cards[i],nx=cards[i+1];
+    const full=!nx||!!c.prose;
+    if(full){con.appendChild(mkCard(c,true));i++;}
+    else{
+      const row=document.createElement('div');row.className='result-grid';
+      row.appendChild(mkCard(c,false));row.appendChild(mkCard(nx,false));
+      con.appendChild(row);i+=2;
+    }
+  }
+}
+
+function mkCard(s,full){
+  const el=document.createElement('div');
+  el.className='result-card'+(full?' full':'');
+  el.innerHTML=`<h3><span>${s.icon}</span> ${s.title}</h3>`;
+  (s.rows||[]).forEach(r=>{
+    const d=document.createElement('div');d.className='data-row';
+    d.innerHTML=`<span class="data-label">${r.l}</span><span class="data-value">${r.v}</span>`;
+    el.appendChild(d);
+  });
+  if(s.prose){
+    const p=document.createElement('p');
+    p.style.marginTop=s.rows?.length?'14px':'0';
+    p.textContent=s.prose;el.appendChild(p);
+  }
+  return el;
+}
+
+function showError(msg){
+  const e=document.getElementById('error-msg');
+  e.textContent=msg;e.classList.add('active');
+}
+function hideError(){document.getElementById('error-msg').classList.remove('active');}
+
+function resetForm(){
+  document.getElementById('results').style.display='none';
+  document.getElementById('form-section').style.display='block';
+  document.getElementById('chart-cards').innerHTML='';
+  document.getElementById('prediction-text').textContent='';
+  document.getElementById('prediction-card').style.display='none';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+window.addEventListener('load',()=>{loadKey();setTimeout(initMaps,100);});
+</script>
+</body>
+</html>
