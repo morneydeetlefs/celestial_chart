@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 morneydeetlefs
+Copyright (c) 2026 Celestial Profile Contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +19,32 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+Third-Party Notices
+-------------------
+
+This project uses the following open-source libraries and services:
+
+Leaflet (https://leafletjs.com/)
+  Copyright (c) 2010-2024, Vladimir Agafonkin
+  Copyright (c) 2010-2011, CloudMade
+  BSD 2-Clause License
+
+OpenStreetMap (https://www.openstreetmap.org/)
+  Map data © OpenStreetMap contributors
+  Open Database License (ODbL) — https://opendatacommons.org/licenses/odbl/
+
+Nominatim Geocoding (https://nominatim.openstreetmap.org/)
+  Provided by the OpenStreetMap Foundation
+  Usage subject to Nominatim Usage Policy — https://operations.osmfoundation.org/policies/nominatim/
+
+Google Fonts — Cormorant Garamond & Inter
+  Cormorant Garamond: Copyright (c) 2015 Christian Thalmann, SIL Open Font License
+  Inter: Copyright (c) 2016 Rasmus Andersson, SIL Open Font License
+
+Groq API (https://groq.com/)
+  AI inference service. Usage subject to Groq's Terms of Service.
+  Your API key and usage are governed by Groq's policies.
+  This project does not bundle or redistribute any Groq software.
