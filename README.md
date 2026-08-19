@@ -52,7 +52,7 @@ All astrological calculations happen locally in your browser:
 ### 1. Download the app
 Just grab the single file:
 ```
-astrology-app.html
+index.html
 ```
 No npm install. No build step. No dependencies to manage.
 
@@ -110,7 +110,7 @@ No credit card. No expiry. See [Groq rate limits](https://console.groq.com/docs/
 
 ```
 celestial-profile/
-├── astrology-app.html   # The entire app — one file
+├── index.html   # The entire app — one file
 ├── README.md            # This file
 └── LICENSE              # MIT License
 ```
@@ -150,7 +150,7 @@ Contributions are very welcome! Some ideas for improvement:
 
 To contribute:
 1. Fork the repo
-2. Make your changes to `astrology-app.html`
+2. Make your changes to index.html`
 3. Test in a browser
 4. Open a Pull Request with a clear description
 
