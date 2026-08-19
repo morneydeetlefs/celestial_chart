@@ -160,6 +160,32 @@ h1 em{font-style:italic;color:var(--accent)}
 .model-status.loading{color:var(--accent)}
 .model-status.ok{color:var(--jade)}
 .model-status.err{color:var(--rose)}
+
+/* Save bar */
+.save-bar{display:flex;align-items:center;gap:12px;margin-top:28px;flex-wrap:wrap}
+.save-bar input{flex:1;min-width:160px;background:rgba(255,255,255,.04);border:1px solid rgba(200,169,110,.25);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:border-color .2s}
+.save-bar input:focus{border-color:var(--accent)}
+.save-bar input::placeholder{color:var(--mist)}
+.btn-save{background:linear-gradient(135deg,rgba(200,169,110,.15),rgba(123,111,224,.1));border:1px solid var(--accent);border-radius:8px;color:var(--accent);font-family:'Inter',sans-serif;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:10px 20px;cursor:pointer;white-space:nowrap;transition:all .2s}
+.btn-save:hover{background:linear-gradient(135deg,rgba(200,169,110,.25),rgba(123,111,224,.2));box-shadow:0 0 20px rgba(200,169,110,.12)}
+.save-feedback{font-size:12px;color:var(--jade);min-height:16px;width:100%;margin-top:4px}
+/* Saved readings panel */
+.saved-panel-wrap{margin-bottom:28px}
+.saved-empty{font-size:13px;color:var(--mist);font-style:italic;padding:8px 0}
+.saved-list{display:flex;flex-direction:column;gap:10px}
+.saved-item{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:14px 16px;transition:border-color .2s;cursor:default}
+.saved-item:hover{border-color:rgba(200,169,110,.35)}
+.saved-item-info{flex:1;min-width:0}
+.saved-item-name{font-size:14px;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.saved-item-meta{font-size:11px;color:var(--mist);letter-spacing:.3px}
+.saved-item-badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.saved-item-badge{font-size:10px;padding:2px 8px;border-radius:10px;border:1px solid rgba(200,169,110,.25);color:var(--accent)}
+.btn-recall{background:rgba(123,111,224,.12);border:1px solid rgba(123,111,224,.35);border-radius:7px;color:var(--glow);font-size:11px;letter-spacing:.5px;padding:6px 14px;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0}
+.btn-recall:hover{background:rgba(123,111,224,.22)}
+.btn-del{background:none;border:none;color:var(--mist);font-size:18px;cursor:pointer;padding:2px 6px;border-radius:5px;line-height:1;transition:color .2s;flex-shrink:0}
+.btn-del:hover{color:var(--rose)}
+.recall-notice{font-size:11px;color:var(--mist);letter-spacing:1px;text-transform:uppercase;text-align:center;margin-bottom:20px;padding:10px 16px;border:1px dashed rgba(200,169,110,.2);border-radius:8px}
+.recall-notice b{color:var(--accent);font-weight:400}
 </style>
 </head>
 <body>
@@ -195,6 +221,10 @@ h1 em{font-style:italic;color:var(--accent)}
       </div>
       <div class="model-status" id="model-status"></div>
     </div>
+
+
+    <!-- SAVED READINGS -->
+    <div class="saved-panel-wrap" id="saved-panel-wrap"></div>
 
     <!-- BIRTH DETAILS -->
     <div class="section-label">Birth Details</div>
@@ -272,6 +302,14 @@ h1 em{font-style:italic;color:var(--accent)}
       <div class="model-tag" id="model-tag"></div>
       <div class="stream-box" id="prediction-text"></div>
     </div>
+
+    <!-- SAVE BAR -->
+    <div id="recall-notice" style="display:none" class="recall-notice">Viewing saved reading — <b>AI predictions</b> are stored as captured. <b>Charts</b> are recalculated live.</div>
+    <div class="save-bar" id="save-bar">
+      <input type="text" id="save-name" placeholder="Name this reading (e.g. John — Birth Chart 2026)"/>
+      <button class="btn-save" onclick="saveReading()">✦ Save Reading</button>
+    </div>
+    <div class="save-feedback" id="save-feedback"></div>
     <button class="btn-reset" onclick="resetForm()">← New Reading</button>
   </div>
 
@@ -742,6 +780,16 @@ async function streamPrediction(p){
     cursor.remove();
     box.textContent='⚠ Could not load AI predictions: '+err.message+'\n\nYour chart data above is calculated locally and is still accurate. Check that your Groq API key is correct and try again.';
   }
+  // Stash after stream (success or fail — chart data is always valid)
+  const predictionText = document.getElementById('prediction-text').textContent;
+  const badgeEls = [...document.getElementById('result-badges').querySelectorAll('.badge')];
+  stashCurrentReading({
+    name: p.name,
+    chartArgs: {name:p.name,age:p.age,sun:p.sun,moon:p.moon,rising:p.rising,vedic:p.vedic,nak:p.nak,chinese:p.chinese,dasha:p.dasha,tibetan:p.tibetan,astrocart:p.astrocart,bCity:p.bCity,cCity:p.cCity},
+    badges: badgeEls.map(b=>b.textContent.trim()),
+    prediction: predictionText,
+    modelTag: 'via Groq · '+p.model,
+  });
 }
 
 function buildPrompt(p){
@@ -891,7 +939,133 @@ function resetForm(){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-window.addEventListener('load',()=>{loadKey();setTimeout(initMaps,100);});
+
+// ══════════════════════════════════════════════════════════════
+// SAVE / RECALL SYSTEM
+// ══════════════════════════════════════════════════════════════
+const STORAGE_KEY = 'celestial_saved_readings';
+let currentReadingData = null; // set after each successful generation
+
+function getSaved(){
+  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }
+  catch{ return []; }
+}
+function putSaved(arr){ localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }
+
+// Called after generateReading populates the page — stash current data for saving
+function stashCurrentReading(data){
+  currentReadingData = data;
+  // Pre-fill save name with person's name
+  const nameEl = document.getElementById('save-name');
+  if(nameEl && data.name && data.name !== 'Seeker'){
+    const now = new Date();
+    nameEl.value = data.name + ' — ' + now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  }
+  document.getElementById('save-feedback').textContent = '';
+  document.getElementById('recall-notice').style.display = 'none';
+  renderSavedPanel();
+}
+
+function saveReading(){
+  if(!currentReadingData){ return; }
+  const nameInput = document.getElementById('save-name');
+  const label = nameInput.value.trim() || currentReadingData.name + ' — ' + new Date().toLocaleDateString();
+  const saved = getSaved();
+  // Check duplicate name
+  const dupIdx = saved.findIndex(s => s.label === label);
+  const entry = {
+    id: Date.now().toString(),
+    label,
+    savedAt: new Date().toISOString(),
+    data: currentReadingData
+  };
+  if(dupIdx >= 0){
+    saved[dupIdx] = entry; // overwrite
+  } else {
+    saved.unshift(entry); // newest first
+  }
+  putSaved(saved);
+  document.getElementById('save-feedback').textContent = '✓ Saved as "' + label + '"';
+  renderSavedPanel();
+}
+
+function deleteReading(id){
+  const saved = getSaved().filter(s => s.id !== id);
+  putSaved(saved);
+  renderSavedPanel();
+}
+
+function recallReading(id){
+  const entry = getSaved().find(s => s.id === id);
+  if(!entry) return;
+  const d = entry.data;
+
+  // Hide form, show results
+  document.getElementById('form-section').style.display = 'none';
+  document.getElementById('loading').classList.remove('active');
+  document.getElementById('results').style.display = 'block';
+
+  // Restore chart cards (recalculate from stored raw values)
+  renderCharts(d.chartArgs);
+
+  // Restore prediction text
+  const predCard = document.getElementById('prediction-card');
+  const predText = document.getElementById('prediction-text');
+  if(d.prediction){
+    predCard.style.display = 'block';
+    document.getElementById('model-tag').textContent = d.modelTag || '';
+    predText.textContent = d.prediction;
+  } else {
+    predCard.style.display = 'none';
+  }
+
+  // Show recall notice
+  const savedAt = new Date(entry.savedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  document.getElementById('recall-notice').style.display = 'block';
+  document.getElementById('recall-notice').innerHTML = 'Viewing saved reading from <b>' + savedAt + '</b> — charts recalculated live, AI text as captured.';
+
+  // Pre-fill save name in case they want to re-save
+  document.getElementById('save-name').value = entry.label;
+  document.getElementById('save-feedback').textContent = '';
+  currentReadingData = d;
+
+  document.getElementById('results').scrollIntoView({behavior:'smooth'});
+}
+
+function renderSavedPanel(){
+  const wrap = document.getElementById('saved-panel-wrap');
+  if(!wrap) return;
+  const saved = getSaved();
+
+  if(!saved.length){
+    wrap.innerHTML = '';
+    return;
+  }
+
+  const html = `
+    <div class="section-label">Saved Readings</div>
+    <div class="card" style="padding:20px 24px">
+      <div class="saved-list">
+        ${saved.map(s => {
+          const badges = (s.data.badges||[]).slice(0,3).map(b =>
+            `<span class="saved-item-badge">${b}</span>`).join('');
+          const when = new Date(s.savedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+          return `<div class="saved-item">
+            <div class="saved-item-info">
+              <div class="saved-item-name">${s.label}</div>
+              <div class="saved-item-meta">Saved ${when}</div>
+              <div class="saved-item-badges">${badges}</div>
+            </div>
+            <button class="btn-recall" onclick="recallReading('${s.id}')">▶ View</button>
+            <button class="btn-del" onclick="deleteReading('${s.id}')" title="Delete">×</button>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  wrap.innerHTML = html;
+}
+
+window.addEventListener('load',()=>{loadKey();setTimeout(initMaps,100);renderSavedPanel();});
 </script>
 </body>
 </html>
